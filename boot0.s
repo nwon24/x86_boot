@@ -29,11 +29,13 @@ _start:
 	rep
 	movsw			# Copy
 	ljmp	$0,$RADDR+1f-LADDR	# Jump to relocation
+
+	# From now on, addresses must be relative to RADDR
 1:	sti
 	cmp	$0x80,%dl		# Floppy disk?
 	jl	err			# Don't care for them
 	# Save disk
-	mov	%dl, drv
+	movb	%dl,RADDR+drv-LADDR
 	# Set es:di to part table
 	mov	$RADDR+PARTOFF,%di
 
@@ -55,7 +57,7 @@ _start:
 	movb	$0,%ah			# Clear upper byte
 	push	%ax			# Save it
 	sub	$'0',%al		# Get partition number
-	mov	%al,part		# save it
+	mov	%al,RADDR+part-LADDR		# save it
 	pop	%ax			# Echo it back
 	mov	$0x1,%ah
 	mov	$0,%dx			# First serial port
@@ -63,7 +65,7 @@ _start:
 
 	# Get partition table entry
 	xor	%ax,%ax
-	mov	part,%al
+	mov	RADDR+part-LADDR,%al
 	dec	%al
 	shl	$4,%al			# Each entry is 16 bytes
 	add	%ax,%di
@@ -74,18 +76,21 @@ _start:
 	# Now read the VBR
 	mov	LBAOFF(%di), %ax	# Lower 16-bits
 	mov	LBAOFF+2(%di), %bx	# Upper 16-bits
-	mov	$pket,%si
+	mov	$RADDR+pket-LADDR,%si
 	mov	%ax,8(%si)		# Store in packet
 	mov	%bx,10(%si)		# ""
 	movw	$0,12(%si)
 	
 	mov	$0x42,%ah		# Extended read
-	mov	drv,%dl			# Drive number
+	mov	RADDR+drv-LADDR,%dl			# Drive number
 	int	$0x13
 	jc	err			# Carry set on error
 	test	%ah,%ah			# ah should also be 0
 	jnz	err
 
+	# Give partition table entry and disk to VBR
+	mov	%di,%si
+	mov	RADDR+drv-LADDR,%dl
 	# Now jump to VBR
 	ljmp	$0,$LADDR
 1:	jmp	.
@@ -96,8 +101,7 @@ err:	mov	$0x1,%ah
 	mov	$'?',%al
 	int	$0x14
 	jmp	.
-drv:
-	.word	0
+.align 2
 pket:
 	.byte	16
 	.byte	0
@@ -107,6 +111,8 @@ pket:
 	.long	0
 	.long	0
 part:
+	.byte	0
+drv:
 	.byte	0
 .=510
 .word 0xaa55
