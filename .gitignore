@@ -3,3 +3,4 @@ boot0
 boot1
 instboot
 *.img
+boot/boot
