@@ -19,7 +19,7 @@ boot1: boot1.s
 	$(AS) --32 -o boot1.o boot1.s
 	$(LD) -melf_i386 -o boot1 --oformat binary -Ttext 0x7c00 boot1.o
 $(BOOT): $(BOOTOBJ)
-	$(LD) -o $(BOOT) --oformat binary -Ttext 0x7e00 $(BOOTOBJ)
+	$(LD) -o $(BOOT) --oformat binary -Ttext 0x8000 $(BOOTOBJ)
 
 disk.img: mkext2.sh
 	dd if=/dev/zero of=disk.img bs=1024 count=10240
@@ -32,7 +32,7 @@ wboot: disk.img boot0 boot1 instboot $(BOOT)
 	./instboot disk.img boot0 boot1 1
 cpboot: disk.img $(BOOT) 
 	./instboot.sh disk.img $(BOOT)
-run: wboot disk.img 
+run: wboot cpboot disk.img 
 	qemu-system-x86_64 -hda disk.img -nographic -monitor telnet::45454,server,nowait -serial mon:stdio
 clean:
 	rm -f boot0 boot0.o boot1 boot.o
