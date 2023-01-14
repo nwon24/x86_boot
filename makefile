@@ -4,11 +4,11 @@ AS = $(TGT)-as
 LD = $(TGT)-ld
 OBJCOPY = $(TGT)-objcopy
 
-export TGT cc AS LD OBJCOPY
+export TGT CC AS LD OBJCOPY
 
 BOOT = boot/boot
 
-.PHONY: all boot
+.PHONY: all $(BOOT)
 
 all: boot0 boot1 $(BOOT)
 
