@@ -2,6 +2,13 @@
 # Loads /kernel from the filesystem
 # Begins in 16-bit real mode
 # Linked at 0x7e00
+
+# MEMORY MAP
+# 0x1000 - 0x5000 - page tables
+# 0x5000 - memory map
+
+COM1 = 0x3f8
+
 .code16
 .text
 .globl _start
@@ -87,6 +94,7 @@ bootgdtr:
 # START OF 32BIT
 .code32
 pmmode:
+	cli			# No interrupts
 	mov	$0x10,%ax	# Set segment descriptors
 	mov	%ax,%ds
 	mov	%ax,%es
@@ -94,7 +102,70 @@ pmmode:
 	mov	%ax,%gs
 	mov	%ax,%ss
 	mov	$pmstack,%esp
-	jmp	.
+
+	# Set up serial port for output
+	# Disable all interrupts
+	# Write 0 to port +1
+	mov	$0,%al
+	mov	$COM1+1,%dx
+	out	%al,%dx
+	# Set baud rate
+	# Begin by setting DLAB in port +3
+	mov	$0x80,%al
+	mov	$COM1+3,%dx
+	out	%al,%dx
+	# Baud rate 115200 (divisor 1)
+	mov	$1,%al
+	mov	$COM1,%dx
+	out	%al,%dx
+	mov	$0,%al
+	inc	%dx
+	out	%al,%dx
+	# Clear msb of port +3
+	# and set 8 bit, no parity, one stop bit
+	mov	$0x3,%al
+	mov	$COM1+3,%dx
+	out	%al,%dx
+	# magic
+	mov	$0xc7,%al
+	mov	$COM1+2,%dx
+	out	%al,%dx
+
+	# Done. Now call main to load the kernel.
+	call	main
+	# Unreachable
+die:	jmp	.
+
+.globl putc
+	# Send a character to the serial port
+putc:
+	mov	$COM1+5,%dx	# Line status register
+	inb	%dx,%al		# Get status
+	and	$0x20,%al	# Can data be send?
+	jz	putc		# No, loop
+	mov	4(%esp),%eax	# Get char
+	mov	$COM1,%dx
+	out	%al,%dx		# Send it
+	ret
+.globl puts
+	# Write a string to the serial port
+puts:
+	push	%ebp
+	mov	%esp,%ebp
+	push	%esi
+	mov	8(%ebp),%esi	# Get string
+1:	xor	%eax,%eax	# Clear %eax
+	lodsb			# Get a byte
+	test	%al,%al		# End of string?
+	jz	1f		# Yes, exit loop
+	push	%eax		# Call 'putc' to print it
+	call	putc
+	add	$4,%esp	
+	jmp	1b		# Loop
+1:	pop	%esi
+	mov	%ebp,%esp
+	pop	%ebp
+	ret
 
 .=.+512
 pmstack:
