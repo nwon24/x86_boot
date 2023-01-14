@@ -5,6 +5,8 @@ LADDR	= 0x7c00
 EXT2SIG = 0xef53
 BGDSIZ  = 32
 
+BOOTLDR = 0x8000
+
 .code16
 .=0
 .globl _start
@@ -107,7 +109,34 @@ _start:
 	pop	%si
 	inc	%si
 	jmp	1b
-1:	jmp	.
+1:	# Inode for /boot now in %ax
+	# Read it into 0x900
+	mov	$0x900,%di
+	call	iget		
+	# Now load bootloader at 0x8000, where it is linked
+	# Load only the direct blocks - the bootloader shouldn't
+	# be that large.
+	mov	$BOOTLDR,%si	# Where to load bootloader
+	mov	$0x900+40,%di	# Start of direct blocks
+1:	cmp	$0x900+88,%di	# At end of direct blocks?
+	jge	sizeerr		# Yes, too large
+	mov	(%di),%ax	# Get block
+	cmp	$0,%ax		# Done?
+	je	1f		# Yes, exit loop
+	push	%di		# No, Save pointer
+	mov	%si,%di
+	mov	$1,%cx		# Read 1 block
+	push	%si
+	call	rblk
+	pop	%si
+	add	bsize,%si
+	pop	%di
+	add	$4,%di		# Go to next block
+	jmp	1b
+1:	# Jump to bootloader
+	ljmp	$0,$BOOTLDR
+	# UNREACHABLE
+	jmp	.
 
 	# Given address of block, find 'boot'
 	# Return inode in ax
@@ -138,6 +167,92 @@ search:
 	jmp	1b		# Loop
 1:	ret	
 
+
+	# Print '?' and die
+err:
+	mov	$0x1,%ah
+	mov	$'?',%al
+	mov	$0,%dx
+	int	$0x14
+	jmp	.
+
+	# Read a number of sectors
+	# starting from an offset from the partition
+	# cx=sectors to read, ax:bx=starting offset, di=destination
+	# Surely no sector > 32 bits??
+rsec:
+	clc			# Clear carry
+	movb	drv,%dl		# Drive number
+	mov	$pket,%si	# Disk package address
+	mov	%cx,2(%si)	# Set count
+	mov	%di,4(%si)	# Address offset 
+	mov	partoff,%cx	# Lower 16-bits of offset
+	add	%cx,%bx		# Add it 
+	mov	%bx,8(%si)	# Put it into the packate
+	mov	partoff+2,%cx	# Upper 16-bits of offset
+	add	%cx,%ax		# Add it
+	mov	%ax,10(%si)	# Save it
+	mov	$0x42,%ah	# Extended read
+	int	$0x13
+	jc	diskerr		# Carry set if error
+	ret
+diskerr:
+	mov	$diskmsg,%si
+	call	errmsg
+	jmp	.
+
+
+	# Print a message and die
+	# Message is in si
+errmsg:
+	mov	$0,%dx
+1:	lodsb
+	cmp	$0,%al
+	je	1f
+	mov	$0x1,%ah
+	int	$0x14
+	jmp	1b
+1:	jmp	.
+
+
+# IMPORTANT THAT THIS GOES BEFORE MAGIC
+
+
+drv:
+	.word	0
+partoff:
+	.long	0
+pket:
+	.byte	16	# Always 16 (size)
+	.byte	0	# Always 0
+	.word	0	# Number of sectors to transfer
+	.word	0	# Address offset
+	.word	0	# Address segment
+	.long	0	# lower 32-bits of LBA
+	.long	0	# Upper 16-bits of LBA
+
+.=510
+.word 0xaa55
+# What follows this must be read into memory
+
+	# Read ext2 block
+	# ax=starting offset, di=destination, cx=block count
+rblk:
+	mov	%ax,%bx		# Save offset
+	mov	%cx,%ax		# get sector count
+	mov	bsize,%si	# Get block size
+	shr	$9,%si		# Get as multiple of sector size
+	xor	%dx,%dx		# Do conversions 
+	mul	%si		# Multiply
+	mov	%ax,%cx		# Store sector count
+	mov	%bx,%ax		# Get sector offset
+	xor	%dx,%dx		# dx:ax
+	mul	%si		# multiply to get sector offset
+	mov	%ax,%bx		# Move upper and lower 16-bits to proper location
+	mov	%dx,%ax
+	call	rsec
+	ret
+	
 	# Given an inode number (ax), read its inode into memory
 	# at the specified address (di)
 iget:
@@ -202,88 +317,6 @@ iget:
 	movsb
 	ret
 
-	# Print '?' and die
-err:
-	mov	$0x1,%ah
-	mov	$'?',%al
-	mov	$0,%dx
-	int	$0x14
-	jmp	.
-
-	# Read a number of sectors
-	# starting from an offset from the partition
-	# cx=sectors to read, ax:bx=starting offset, di=destination
-	# Surely no sector > 32 bits??
-rsec:
-	clc			# Clear carry
-	movb	drv,%dl		# Drive number
-	mov	$pket,%si	# Disk package address
-	mov	%cx,2(%si)	# Set count
-	mov	%di,4(%si)	# Address offset 
-	mov	partoff,%cx	# Lower 16-bits of offset
-	add	%cx,%bx		# Add it 
-	mov	%bx,8(%si)	# Put it into the packate
-	mov	partoff+2,%cx	# Upper 16-bits of offset
-	add	%cx,%ax		# Add it
-	mov	%ax,10(%si)	# Save it
-	mov	$0x42,%ah	# Extended read
-	int	$0x13
-	jc	diskerr		# Carry set if error
-	ret
-diskerr:
-	mov	$diskmsg,%si
-	call	errmsg
-	jmp	.
-
-	# Read ext2 block
-	# ax=starting offset, di=destination, cx=block count
-rblk:
-	mov	%ax,%bx		# Save offset
-	mov	%cx,%ax		# get sector count
-	mov	bsize,%si	# Get block size
-	shr	$9,%si		# Get as multiple of sector size
-	xor	%dx,%dx		# Do conversions 
-	mul	%si		# Multiply
-	mov	%ax,%cx		# Store sector count
-	mov	%bx,%ax		# Get sector offset
-	xor	%dx,%dx		# dx:ax
-	mul	%si		# multiply to get sector offset
-	mov	%ax,%bx		# Move upper and lower 16-bits to proper location
-	mov	%dx,%ax
-	call	rsec
-	ret
-	
-	# Print a message and die
-	# Message is in si
-errmsg:
-	mov	$0,%dx
-1:	lodsb
-	cmp	$0,%al
-	je	1f
-	mov	$0x1,%ah
-	int	$0x14
-	jmp	1b
-1:	jmp	.
-
-
-# IMPORTANT THAT THIS GOES BEFORE MAGIC
-drv:
-	.word	0
-partoff:
-	.long	0
-pket:
-	.byte	16	# Always 16 (size)
-	.byte	0	# Always 0
-	.word	0	# Number of sectors to transfer
-	.word	0	# Address offset
-	.word	0	# Address segment
-	.long	0	# lower 32-bits of LBA
-	.long	0	# Upper 16-bits of LBA
-
-.=510
-.word 0xaa55
-# What follows this must be read into memory
-
 ext2err:
 	mov	$ext2msg,%si
 	call	errmsg
@@ -294,13 +327,18 @@ booterr:
 	call	errmsg
 	jmp	.
 
-
+sizeerr:
+	mov	$sizemsg,%si
+	call	errmsg
+	jmp	.
 ext2msg:
 	.asciz	"?ext2\n"
 diskmsg:
 	.asciz	"?disk\n"
 bootmsg:
 	.asciz	"?boot\n"
+sizemsg:
+	.asciz	"?size\n"
 boot:
 	.asciz	"boot"
 
