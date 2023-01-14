@@ -13,9 +13,10 @@ boot1: boot1.s
 	$(AS) --32 -o boot1.o boot1.s
 	$(LD) -melf_i386 -o boot1 --oformat binary -Ttext 0x7c00 boot1.o
 
-disk.img:
+disk.img: mkext2.sh
 	dd if=/dev/zero of=disk.img bs=1024 count=10240
 	printf ",,L,*" | sfdisk disk.img
+	./mkext2.sh disk.img
 
 instboot: instboot.c
 	cc -O -w -o instboot instboot.c 
