@@ -154,7 +154,7 @@ search:
 	push	%di
 	add	$8,%di
 	mov	$4,%cx		# Compare 4 chars
-	cld; rep; cmpsb
+	cld; repe; cmpsb
 	jne	3f		# Not equal
 	pop	%di
 	pop	%si
