@@ -20,7 +20,7 @@ main(int argc, char *argv[])
 	FILE *dsk, *mbr, *vbr;
 	char buf[SECSIZ];
 	char *pent;
-	int ent, lba;
+	int ent, lba, i;
 
 	if (argc != 5) {
 		fprintf(stderr, "instdboot [disk] [mbr] [vbr] [part num]\n");
@@ -71,11 +71,8 @@ main(int argc, char *argv[])
 		return 1;
 	}
 	fseek(dsk, SECSIZ*lba, SEEK_SET);
-	if (fread(buf, 1, SECSIZ, vbr) != SECSIZ) {
-		fprintf(stderr, "Invalid vbr\n");
-		return 1;
-	}
-	fwrite(buf, 1, SECSIZ, dsk);
+	while ((i = fread(buf, 1, SECSIZ, vbr)) > 0)
+		fwrite(buf, 1, i, dsk);
 	fclose(dsk);
 	fclose(vbr);
 	fclose(mbr);
