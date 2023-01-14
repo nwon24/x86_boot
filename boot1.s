@@ -35,7 +35,14 @@ _start:
 	mov	10(%si),%ax	# Upper 16bits
 	mov	%ax,partoff+2   # Save it
 
+	# Read the rest of ourselves into memory
 	sti
+	xor	%ax,%ax
+	mov	$1,%bx		# sector 1 in partition
+	mov	$LADDR+512,%di	# Load it after ourselves
+	mov	$1,%cx		# Load one sector
+	call	rsec
+
 	# Read superblock - 1024 bytes from start of partition = 2 sectors
 	# Read 2 sectors to 0x500 (scratch area)
 	mov	$2,%cx		# 2 sectors
@@ -77,7 +84,59 @@ _start:
 	mov	$2,%ax
 	mov	$0x900,%di
 	call	iget
-	jmp	.
+
+	# Search root directory for a file called 'boot'
+	# We search only the direct blocks because the root
+	# directory shouldn't be that large.
+	xor	%si,%si		# Initialise count
+	mov	$0x900+40,%bx	# Address of inode blocks
+1:	cmp	$12,%si		# Done with direct blocks?
+	jge	booterr		# Yes, error
+	mov	%si,%di
+	shl	$2,%di		# Each block is 4 bytes
+	add	%di,%bx
+	mov	(%bx),%ax 	# Get block
+	mov	$0xd000,%di	# Read into 0xd000
+	mov	$1,%cx		# Read one block
+	push	%si
+	call	rblk
+	mov	$0xd000,%di
+	call	search
+	test	%ax,%ax
+	jnz	1f		# Found!	
+	pop	%si
+	inc	%si
+	jmp	1b
+1:	jmp	.
+
+	# Given address of block, find 'boot'
+	# Return inode in ax
+search:
+	xor	%ax,%ax		# Return inode 0 (invalid) if not found
+	mov	%di,%si		# Save source
+	add	bsize,%si	# Limit
+1:	cmp	%si,%di
+	jge	1f
+	movb	6(%di),%bl	# Length = 4?
+	cmp	$4,%bl
+	jne	2f
+	push	%si
+	mov	$boot,%si	# Do compare
+	push	%di
+	add	$8,%di
+	mov	$4,%cx		# Compare 4 chars
+	cld; rep; cmpsb
+	jne	3f		# Not equal
+	pop	%di
+	pop	%si
+	mov	(%di),%ax	# Get inode
+	ret
+3:	pop	%di
+	pop	%si
+2:	mov	4(%di),%ax	# Get offset to next entry
+	add	%ax,%di		# Add the offset
+	jmp	1b		# Loop
+1:	ret	
 
 	# Given an inode number (ax), read its inode into memory
 	# at the specified address (di)
@@ -194,11 +253,6 @@ rblk:
 	call	rsec
 	ret
 	
-ext2err:
-	mov	$ext2msg,%si
-	call	errmsg
-	jmp	.
-
 	# Print a message and die
 	# Message is in si
 errmsg:
@@ -212,14 +266,11 @@ errmsg:
 1:	jmp	.
 
 
+# IMPORTANT THAT THIS GOES BEFORE MAGIC
 drv:
 	.word	0
 partoff:
 	.long	0
-ext2msg:
-	.asciz	"?ext2\n"
-diskmsg:
-	.asciz	"?disk\n"
 pket:
 	.byte	16	# Always 16 (size)
 	.byte	0	# Always 0
@@ -228,6 +279,30 @@ pket:
 	.word	0	# Address segment
 	.long	0	# lower 32-bits of LBA
 	.long	0	# Upper 16-bits of LBA
+
+.=510
+.word 0xaa55
+# What follows this must be read into memory
+
+ext2err:
+	mov	$ext2msg,%si
+	call	errmsg
+	jmp	.
+
+booterr:
+	mov	$bootmsg,%si
+	call	errmsg
+	jmp	.
+
+
+ext2msg:
+	.asciz	"?ext2\n"
+diskmsg:
+	.asciz	"?disk\n"
+bootmsg:
+	.asciz	"?boot\n"
+boot:
+	.asciz	"boot"
 
 # ext2 parameters we want to save from superblock
 # block size
@@ -247,5 +322,3 @@ index:
 	.word	0
 dest:
 	.word 	0
-.=510
-.word 0xaa55
