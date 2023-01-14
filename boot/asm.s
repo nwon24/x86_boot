@@ -6,4 +6,8 @@
 .text
 .globl _start
 _start:
+	mov	$1,%ah
+	mov	$0,%dx
+	mov	$'a',%al
+	int	$0x14
 	jmp	.
