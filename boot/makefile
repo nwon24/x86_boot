@@ -3,7 +3,7 @@ all: boot
 BOOTOBJ = asm.o main.o
 
 .c.o:
-	$(CC) -m32 -W -O -mno-red-zone -mno-sse -c $<
+	$(CC) -m32 -W -O -mno-red-zone -mno-sse -ffreestanding -nostdlib -c $<
 .s.o:
 	$(AS) --32 -o $@ $<
 
