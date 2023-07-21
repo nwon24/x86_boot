@@ -167,5 +167,19 @@ puts:
 	pop	%ebp
 	ret
 
+.globl cinb, coutb
+/ read an IO port
+cinb:
+	mov	4(%esp),%edx
+	xor	%eax,%eax
+	inb	%dx
+	ret
+/ write to an IO port
+coutb:
+	mov	4(%esp),%edx
+	mov	8(%esp),%eax
+	outb	%al,%dx
+	ret
+	
 .=.+512
 pmstack:
