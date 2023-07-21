@@ -8,6 +8,7 @@
 / 0x5000 - memory map
 
 COM1 = 0x3f8
+MMAP = 0x5000
 
 .code16
 .text
@@ -31,8 +32,20 @@ _start:
 	mov	$bootmsg,%si
 	call	print16
 
+	/ Get memory map from BIOS
+	mov	$0,%bx		/ 0 for the first call
+	mov	$MMAP,%di	/ Address
+1:	mov	$24,%cx		/ 24 byte entry 
+	mov	$0x534d4150,%edx	/ magic
+	mov	$0xe820,%ax
+	int	$0x15
+	test	%bx,%bx		/ Done?
+	jz	1f		/ Yes
+	add	$24,%di		/ No, increment pointer and repeat
+	jmp	1b
+
 	/ Go to protected mode
-	cli			/ No interrupts
+1:	cli			/ No interrupts
 	lgdt	bootgdtr	/ Load gdt
 	mov	%cr0,%eax
 	or	$1,%al		/ PM bit on
