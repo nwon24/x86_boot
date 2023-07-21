@@ -3,11 +3,11 @@ all: boot
 BOOTOBJ = asm.o main.o
 
 .c.o:
-	$(CC) -m32 -W -O -mno-red-zone -mno-sse -ffreestanding -nostdlib -c $<
+	$(CC) -W -O -ffreestanding -c $<
 .s.o:
-	$(AS) --32 -o $@ $<
+	$(AS) -o $@ $<
 
 boot: $(BOOTOBJ)
-	$(LD) -o boot -melf_i386 --oformat binary -Ttext 0x8000 $(BOOTOBJ)
+	$(LD) -o boot --oformat binary -Ttext 0x8000 $(BOOTOBJ)
 clean:
 	rm -f $(BOOTOBJ) boot
