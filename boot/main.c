@@ -12,7 +12,12 @@ main(void)
 {
 	puts("Hello, world!\n");
 	while (1) {
-		putc(getc());
+		int c;
+
+		c = getc();
+		if (c == '\r')
+			putc('\n');
+		putc(c);
 	}
 	while (1);
 }
