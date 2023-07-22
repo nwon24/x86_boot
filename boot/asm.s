@@ -158,7 +158,7 @@ die:	jmp	.
 putc:
 	mov	$COM1+5,%dx	/ Line status register
 	inb	%dx,%al		/ Get status
-	and	$0x20,%al	/ Can data be send?
+	and	$0x20,%al	/ Can data be sent?
 	jz	putc		/ No, loop
 	mov	4(%esp),%eax	/ Get char
 	mov	$COM1,%dx
@@ -184,18 +184,16 @@ puts:
 	pop	%ebp
 	ret
 
-.globl cinb, coutb
-/ read an IO port
-cinb:
-	mov	4(%esp),%edx
+.globl getc
+	/ Get a character from the serial port
+getc:
+	mov	$COM1+5,%dx
+	inb	%dx
+	test	$1,%al
+	jz	getc
+	mov	$COM1,%dx
 	xor	%eax,%eax
 	inb	%dx
-	ret
-/ write to an IO port
-coutb:
-	mov	4(%esp),%edx
-	mov	8(%esp),%eax
-	outb	%al,%dx
 	ret
 	
 / Simple polling IDE driver

@@ -1,19 +1,18 @@
 #include <stdint.h>
 
-#define inb cinb
-
 uint8_t cinb(uint16_t port);
 void putc(int c);
 void puts(char *s);
+int getc(void);
+
+void iderd(void *buf, int lba, int count);
 
 void
 main(void)
 {
 	puts("Hello, world!\n");
 	while (1) {
-		while (!(inb(0x3f8+5) & 1));
-		putc(inb(0x3f8));
-		inb(0x3f8);
+		putc(getc());
 	}
 	while (1);
 }
