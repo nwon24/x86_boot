@@ -10,6 +10,10 @@
 COM1 = 0x3f8
 MMAP = 0x5000
 
+/ Ports for disk
+/ Assume we're booting from the first hard disk
+IDE1 = 0x1f0
+
 .code16
 .text
 .globl _start
@@ -194,5 +198,56 @@ coutb:
 	outb	%al,%dx
 	ret
 	
+/ Simple polling IDE driver
+.globl idewait
+idewait:
+	mov	$IDE1+7,%dx
+	inb	%dx,%al
+	and	$0xc0,%al
+	cmp	$0x40,%al
+	jne	idewait
+	ret
+
+/ iderd(buf, lba, count)
+.globl iderd
+iderd:
+	call	idewait
+	mov	12(%esp),%eax	/ count
+	mov	%eax,%ecx	/ Save it in %ecx
+	xor	%edx,%edx	/ Clear uppeer 16 bits
+	mov	$IDE1+2,%dx	/ Send count
+	out	%al,%dx
+	mov	8(%esp),%eax	/ LBA
+	mov	$IDE1+3,%dx
+	out	%al,%dx		/ Send lowest 8 bits
+	mov	$IDE1+4,%dx
+	shr	$8,%eax		/ Send next 8 bits
+	out	%al,%dx
+	shr	$8,%eax		/ Send next 8 bits
+	mov	$IDE1+5,%dx
+	out	%al,%dx
+	shr	$8,%eax	
+	mov	$IDE1+6,%dx
+	or	$0xe0,%eax	/ Master drive
+	out	%al,%dx
+	mov	$IDE1+7,%dx
+	mov	$0x20,%al	/ Read sectors command
+	out	%al,%dx
+	call	idewait
+	push	%edi		/ %edi should be saved
+	mov	8(%esp),%edi
+1:	mov	$IDE1,%edx	/ Read 256 words
+	push	%ecx		/ Preserve count
+	mov	$256,%ecx
+	cld
+	rep
+	insw
+	pop	%ecx		/ Restore count
+	dec	%ecx
+	test	%ecx,%ecx	/ Done?
+	jnz	1b
+	pop	%edi		/ Restore %edi
+	ret	
+
 .=.+512
 pmstack:
