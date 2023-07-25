@@ -1,6 +1,5 @@
 #include <stdint.h>
 
-uint8_t cinb(uint16_t port);
 void putc(int c);
 void puts(char *s);
 int getc(void);
