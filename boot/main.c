@@ -28,8 +28,14 @@ main(void)
 			++cr;
 		}
 		putc(c);
-		if (cr || p >= lnbuf+LBSIZ)
+		if (cr)
 			break;
+		if (p >= lnbuf+LBSIZ) {
+			puts("?length\r\n");
+			p = lnbuf;
+			cr = 0;
+			continue;
+		}
 		*p++ = c;
 	}
 	puts("command\r\n");
