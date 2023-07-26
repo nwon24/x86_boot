@@ -30,7 +30,7 @@ main(void)
 		putc(c);
 		if (cr)
 			break;
-		if (p >= lnbuf+LBSIZ) {
+		if (p >= lnbuf+LBSIZ-1) {
 			puts("?length\r\n");
 			p = lnbuf;
 			cr = 0;
@@ -38,6 +38,7 @@ main(void)
 		}
 		*p++ = c;
 	}
+	*p = '\0';
 	puts("command\r\n");
 	while (1);
 }
