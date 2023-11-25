@@ -36,7 +36,7 @@ wboot: disk.img boot0 boot1 instboot $(BOOT)
 cpboot: disk.img $(BOOT) 
 	./instboot.sh disk.img $(BOOT)
 run: wboot cpboot disk.img 
-	qemu-system-i386 -hda disk.img -nographic -serial mon:stdio -serial telnet::45454,server,nowait 
+	qemu-system-i386 -hda disk.img -nographic -serial mon:stdio 
 clean:
 	rm -f boot0 boot0.o boot1 boot.o
 	(cd boot; $(MAKE) clean)

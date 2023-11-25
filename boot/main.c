@@ -8,17 +8,16 @@ int getc(void);
 
 void iderd(void *buf, int lba, int count);
 
-char lnbuf[LBSIZ];
+char linebuf[LBSIZ];
 
 void
-main(void)
+getcmd(void)
 {
 	char *p;
 	int cr;
 
-	p = lnbuf;
 	cr = 0;
-	puts("Hello, world!\n");
+	p = linebuf;
 	while (1) {
 		int c;
 
@@ -30,15 +29,21 @@ main(void)
 		putc(c);
 		if (cr)
 			break;
-		if (p >= lnbuf+LBSIZ-1) {
+		if (p >= linebuf+LBSIZ-1) {
 			puts("?length\r\n");
-			p = lnbuf;
+			p = linebuf;
 			cr = 0;
 			continue;
 		}
 		*p++ = c;
 	}
 	*p = '\0';
-	puts("command\r\n");
+}
+
+void
+main(void)
+{
+	getcmd();
+	puts(linebuf);
 	while (1);
 }
