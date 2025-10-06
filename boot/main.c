@@ -43,7 +43,9 @@ getcmd(void)
 void
 main(void)
 {
-	getcmd();
-	puts(linebuf);
-	while (1);
+	while (1) {
+		getcmd();
+		puts(linebuf);
+		putc('\n');
+	}
 }
